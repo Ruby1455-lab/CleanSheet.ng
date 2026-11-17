@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CleanSheet NG | Clean Data & Dashboard in 48 Hours</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- SheetJS for real in-browser .xlsx and .csv inspection -->
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+  <!-- Paystack Inline Checkout -->
+  <script src="https://js.paystack.co/v1/inline.js"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased">
+
+  <!-- Top Bar -->
+  <header class="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-slate-200">
+    <div class="max-w-5xl mx-auto px-5 h-16 flex items-center justify-between">
+      <a href="#" class="text-lg font-extrabold tracking-tight text-slate-900">
+        CleanSheet<span class="text-emerald-600">.ng</span>
+      </a>
+      <div class="flex items-center space-x-6 text-xs font-semibold text-slate-600">
+        <a href="#pricing" class="hidden sm:inline hover:text-emerald-600">Pricing</a>
+        <a href="#track" class="hover:text-emerald-600">Track Order</a>
+        <a href="#upload-zone" class="bg-slate-900 text-white px-4 py-2 rounded-lg hover:bg-emerald-600 transition">
+          Free Health Check
+        </a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero & Value Proposition -->
+  <section class="bg-slate-950 text-white pt-14 pb-20 px-5">
+    <div class="max-w-4xl mx-auto text-center">
+      <span class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-400/30 text-emerald-300 text-xs font-semibold">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        Fixed Price · 48-Hour Delivery · Full Change Log
+      </span>
+      <h1 class="mt-5 text-3xl sm:text-5xl font-extrabold tracking-tight leading-tight">
+        Upload your mess.<br/>
+        <span class="text-emerald-400">Get clean data & a dashboard in 48 hours.</span>
+      </h1>
+      <p class="mt-4 text-sm sm:text-base text-slate-300 max-w-2xl mx-auto leading-relaxed">
+        Stop guessing from broken Excel sheets. Get a free instant <strong>Mess Score</strong> first—your original file is never modified, every fix is documented, and files auto-delete after 30 days.
+      </p>
+    </div>
+
+    <!-- F1 & F9: Upload Box + Academic Honesty Gate -->
+<form id="order-form" onsubmit="handleOrderSubmission(event)" class="max-w-2xl mx-auto mt-10 bg-white text-slate-900 rounded-2xl p-6 sm:p-8 shadow-2xl border border-slate-200">
+  
+  <!-- F9: Mandatory Business-Use Declaration Gate -->
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-5">
+    <label class="flex items-start gap-3 cursor-pointer">
+      <input type="checkbox" id="businessGateCheckbox" onchange="toggleUploadState()" class="mt-1 w-4 h-4 accent-emerald-600 rounded" />
+      <span class="text-xs text-slate-700 leading-relaxed">
+        <strong>Business-Use Declaration (Required):</strong> I confirm this spreadsheet contains legitimate business, clinic, school, or NGO operational records—<strong>not</strong> student coursework, exams, or thesis data.
+      </span>
+    </label>
+  </div>
+
+  <!-- Dropzone -->
+  <div id="dropContainer" class="relative border-2 border-dashed border-slate-300 rounded-xl p-8 text-center opacity-50 pointer-events-none transition">
+    <input type="file" id="fileInput" accept=".xlsx,.xls,.csv" onchange="handleFileUpload(event)" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" />
+    <div class="w-12 h-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto font-bold text-xl">↑</div>
+    <p class="mt-3 text-sm font-bold text-slate-900">Drop your .xlsx or .csv file here, or tap to browse</p>
+    <p class="mt-1 text-xs text-slate-500">Analyzed locally in your browser first · Max 25,000 rows</p>
+  </div>
+
+  <p id="gateHint" class="mt-2.5 text-center text-[11px] font-semibold text-amber-700">
+    Tick the Business-Use Declaration above to unlock the file uploader.
+  </p>
+</form>
+
+  <!-- F2: Free Sheet Health Check Results (Hidden until file uploaded) -->
+  <section id="healthReportSection" class="hidden max-w-4xl mx-auto px-5 -mt-8 mb-16 relative z-10">
+    <div class="bg-white rounded-2xl border border-slate-200 shadow-xl overflow-hidden">
+      <div class="bg-slate-900 text-white px-6 py-5 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-widest text-emerald-400">Free Health Check Complete</span>
+          <h2 id="reportFileName" class="text-lg font-bold mt-0.5">sales_records_2026.xlsx</h2>
+        </div>
+        <div class="flex items-center gap-3 bg-white/10 px-4 py-2 rounded-xl">
+          <div class="text-right">
+            <span class="block text-[10px] uppercase tracking-wider text-slate-300">Mess Score</span>
+            <span id="messSeverityLabel" class="text-xs font-bold text-amber-400">Needs Cleanup</span>
+          </div>
+          <span id="messScoreBadge" class="text-2xl font-extrabold text-white">68<span class="text-xs text-slate-400">/100</span></span>
+        </div>
+      </div>
+
+      <div class="p-6 sm:p-8">
+        <!-- File Metrics Summary -->
+        <div class="grid grid-cols-3 gap-3 text-center mb-6">
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <p id="metricSheets" class="text-lg font-extrabold text-slate-900">1</p>
+            <p class="text-[11px] text-slate-500">Sheets Found</p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <p id="metricRows" class="text-lg font-extrabold text-slate-900">0</p>
+            <p class="text-[11px] text-slate-500">Total Rows</p>
+          </div>
+          <div class="p-3 rounded-xl bg-slate-50 border border-slate-200">
+            <p id="metricIssues" class="text-lg font-extrabold text-rose-600">0</p>
+            <p class="text-[11px] text-slate-500">Issues Detected</p>
+          </div>
+        </div>
+
+        <!-- Detected Issue Breakdown -->
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-500 mb-3">Diagnostic Issue Log</h3>
+        <ul id="issueList" class="space-y-2.5 text-sm mb-8"></ul>
+
+        <!-- F3: Recommended Fixed-Price Plan & Paystack Checkout -->
+        <div class="rounded-2xl bg-emerald-50/70 border border-emerald-200 p-5 sm:p-6">
+          <div class="flex flex-wrap items-center justify-between gap-4 border-b border-emerald-200/80 pb-4">
+            <div>
+              <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-700">Recommended Fixed-Price Plan</span>
+              <h4 id="recommendedPlanName" class="text-xl font-extrabold text-slate-900 mt-0.5">Standard Clean + Dashboard</h4>
+              <p id="recommendedPlanScope" class="text-xs text-slate-600 mt-0.5">Up to 3 sheets, 25,000 rows, clean file, change log & 6-chart Excel dashboard</p>
+            </div>
+            <div class="text-right">
+              <span id="finalQuotePrice" class="text-2xl font-extrabold text-slate-900">₦20,000</span>
+              <span id="deliveryPromiseBadge" class="block text-[11px] font-bold text-emerald-700">48-Hour Delivery</span>
+            </div>
+          </div>
+
+          <!-- Rush Add-on Toggle (+50% for 24 Hours) -->
+          <div class="mt-4 flex items-center justify-between">
+            <label class="flex items-center gap-2.5 cursor-pointer text-xs font-semibold text-slate-800">
+              <input type="checkbox" id="rushAddonCheckbox" onchange="recalculateQuote()" class="w-4 h-4 accent-emerald-600 rounded" />
+              <span>Add 24-Hour Rush Delivery (+50%)</span>
+            </label>
+            <input type="email" id="customerEmail" placeholder="Enter your email for delivery..." class="w-56 sm:w-64 px-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:border-emerald-600" />
+          </div>
+
+          <button onclick="startPaystackCheckout()" class="mt-5 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs uppercase tracking-widest py-4 rounded-xl shadow-md transition">
+            Pay Fixed Quote with Paystack →
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+ <!-- Pricing Tiers Overview -->
+<section id="pricing" class="max-w-5xl mx-auto px-5 py-16">
+  <div class="text-center mb-10">
+    <h2 class="text-2xl sm:text-3xl font-extrabold">Transparent, Fixed Pricing</h2>
+    <p class="text-xs sm:text-sm text-slate-500 mt-1">No hourly surprises. Know your exact cost before you pay.</p>
+  </div>
+
+  <div class="grid md:grid-cols-3 gap-5">
+    <!-- Card 1: Starter Clean -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-6">
+      <span class="text-xs font-bold uppercase text-slate-400">Starter Clean</span>
+      <p class="text-2xl font-extrabold mt-2 text-slate-900">₦7,500</p>
+      <p class="text-xs text-slate-500 mt-1">1 sheet · Up to 5,000 rows</p>
+      <ul class="mt-5 space-y-2 text-xs text-slate-700">
+        <li>✓ Duplicate & blank row removal</li>
+        <li>✓ Standardized dates & numbers</li>
+        <li>✓ Full written Change Log</li>
+        <li>✓ 48-hour delivery guarantee</li>
+      </ul>
+    </div>
+
+    <!-- Card 2: Standard Clean + Dashboard -->
+    <div class="bg-slate-900 text-white rounded-2xl border-2 border-emerald-500 p-6 shadow-lg">
+      <span class="text-xs font-bold uppercase text-emerald-400">Standard Clean + Dashboard</span>
+      <p class="text-2xl font-extrabold mt-2 text-white">₦20,000</p>
+      <p class="text-xs text-slate-300 mt-1">Up to 3 sheets · 25,000 rows</p>
+      <ul class="mt-5 space-y-2 text-xs text-slate-200">
+        <li>✓ Everything in Starter Clean</li>
+        <li>✓ Excel Dashboard (up to 6 KPI charts)</li>
+        <li>✓ 1 free revision included</li>
+        <li>✓ 48-hour delivery guarantee</li>
+      </ul>
+    </div>
+
+    <!-- Card 3: Keep It Clean -->
+    <div class="bg-white rounded-2xl border border-slate-200 p-6">
+      <span class="text-xs font-bold uppercase text-slate-400">Keep It Clean (Monthly)</span>
+      <p class="text-2xl font-extrabold mt-2 text-slate-900">₦10,000<span class="text-xs font-normal text-slate-500">/mo</span></p>
+      <p class="text-xs text-slate-500 mt-1">Automated monthly recipe reuse</p>
+      <ul class="mt-5 space-y-2 text-xs text-slate-700">
+        <li>✓ Reuse your custom cleaning rules</li>
+        <li>✓ Refreshed monthly KPI dashboard</li>
+        <li>✓ Priority queue access</li>
+        <li>✓ 30-day automatic data purge</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+  <!-- F4: Live Order Tracker Preview -->
+  <section id="track" class="bg-white border-t border-slate-200 py-14 px-5">
+    <div class="max-w-3xl mx-auto">
+      <div class="flex flex-wrap items-center justify-between gap-2 mb-6">
+        <div>
+          <span class="text-[11px] font-bold uppercase tracking-wider text-emerald-600">Live Order Status</span>
+          <h3 class="text-xl font-bold">Order #CS-2026-884</h3>
+        </div>
+        <span class="px-3 py-1.5 rounded-full bg-slate-900 text-emerald-400 font-mono text-xs font-bold">
+          Time Left: 41h 18m
+        </span>
+      </div>
+
+      <div class="grid grid-cols-5 gap-2 text-center text-[11px] font-bold">
+        <div class="p-3 rounded-xl bg-emerald-600 text-white">1. Received</div>
+        <div class="p-3 rounded-xl bg-emerald-600 text-white">2. Cleaning</div>
+        <div class="p-3 rounded-xl bg-amber-100 text-amber-800 border border-amber-300">3. Dashboard</div>
+        <div class="p-3 rounded-xl bg-slate-100 text-slate-400">4. QA Check</div>
+        <div class="p-3 rounded-xl bg-slate-100 text-slate-400">5. Delivered</div>
+      </div>
+    </div>
+  </section>
+
+  <script>
+  let baseQuoteNaira = 20000;
+  let currentFileMeta = {};
+  let uploadedFileObject = null;
+
+  function toggleUploadState() {
+    const checked = document.getElementById('businessGateCheckbox').checked;
+    const drop = document.getElementById('dropContainer');
+    const hint = document.getElementById('gateHint');
+    if (checked) {
+      drop.classList.remove('opacity-50', 'pointer-events-none');
+      drop.classList.add('border-emerald-500', 'bg-emerald-50/30');
+      hint.textContent = 'Ready: Your file stays private and is never overwritten.';
+      hint.className = 'mt-2.5 text-center text-[11px] font-semibold text-emerald-700';
+    } else {
+      drop.classList.add('opacity-50', 'pointer-events-none');
+      drop.classList.remove('border-emerald-500', 'bg-emerald-50/30');
+      hint.textContent = 'Tick the Business-Use Declaration above to unlock the file uploader.';
+      hint.className = 'mt-2.5 text-center text-[11px] font-semibold text-amber-700';
+    }
+  }
+
+  function handleFileUpload(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+    uploadedFileObject = file;
+
+    const reader = new FileReader();
+    reader.onload = function(e) {
+      const data = new Uint8Array(e.target.result);
+      const workbook = XLSX.read(data, { type: 'array' });
+
+      let totalRows = 0;
+      let blankRows = 0;
+      let duplicateRows = 0;
+      let textNumbers = 0;
+      let mergedCellsCount = 0;
+
+      workbook.SheetNames.forEach(sheetName => {
+        const sheet = workbook.Sheets[sheetName];
+        if (sheet['!merges']) mergedCellsCount += sheet['!merges'].length;
+
+        const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+        totalRows += rows.length;
+
+        const seen = new Set();
+        rows.forEach(row => {
+          const isBlank = row.every(cell => String(cell).trim() === '');
+          if (isBlank) {
+            blankRows++;
+          } else {
+            const signature = JSON.stringify(row);
+            if (seen.has(signature)) duplicateRows++;
+            seen.add(signature);
+
+            row.forEach(cell => {
+              const val = String(cell).trim();
+              if (typeof cell === 'string' && /^[₦$€£]?\s*\d[\d,.]*$/.test(val)) {
+                textNumbers++;
+              }
+            });
+          }
+        });
+      });
+
+      renderHealthReport({
+        fileName: file.name,
+        fileSize: file.size,
+        sheetCount: workbook.SheetNames.length,
+        totalRows,
+        blankRows,
+        duplicateRows,
+        textNumbers,
+        mergedCellsCount
+      });
+    };
+    reader.readAsArrayBuffer(file);
+  }
+
+  function renderHealthReport(stats) {
+    currentFileMeta = stats;
+    const totalIssues = stats.blankRows + stats.duplicateRows + stats.textNumbers + stats.mergedCellsCount;
+
+    const rawRatio = stats.totalRows > 0 ? (totalIssues / stats.totalRows) * 100 : 15;
+    const messScore = Math.min(Math.max(Math.round(rawRatio * 1.4), 12), 96);
+
+    document.getElementById('reportFileName').textContent = stats.fileName;
+    document.getElementById('metricSheets').textContent = stats.sheetCount;
+    document.getElementById('metricRows').textContent = stats.totalRows.toLocaleString();
+    document.getElementById('metricIssues').textContent = totalIssues.toLocaleString();
+    document.getElementById('messScoreBadge').innerHTML = `${messScore}<span class="text-xs text-slate-400">/100</span>`;
+    document.getElementById('messSeverityLabel').textContent = messScore > 60 ? 'High Mess (Priority)' : (messScore > 30 ? 'Moderate Mess' : 'Light Cleanup');
+
+    const issues = [
+      { label: 'Blank / Empty Rows', count: stats.blankRows, fix: 'Will remove empty rows without breaking formulas' },
+      { label: 'Exact Duplicate Rows', count: stats.duplicateRows, fix: 'Will deduplicate & log removed rows in Change Log' },
+      { label: 'Numbers / Currency Stored as Text', count: stats.textNumbers, fix: 'Will convert to clean numeric values for SUM/charts' },
+      { label: 'Merged Cells Blocking Filters', count: stats.mergedCellsCount, fix: 'Will unmerge & backfill headers cleanly' }
+    ];
+
+    const listEl = document.getElementById('issueList');
+    listEl.innerHTML = issues.map(item => `
+      <li class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+        <div>
+          <span class="font-bold text-slate-900">${item.label}</span>
+          <span class="block text-xs text-slate-500">${item.fix}</span>
+        </div>
+        <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold ${item.count > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
+          ${item.count} found
+        </span>
+      </li>
+    `).join('');
+
+    if (stats.sheetCount === 1 && stats.totalRows <= 5000) {
+      baseQuoteNaira = 7500;
+      document.getElementById('recommendedPlanName').textContent = 'Starter Clean';
+      document.getElementById('recommendedPlanScope').textContent = '1 sheet, up to 5,000 rows · Clean file + full Change Log';
+    } else {
+      baseQuoteNaira = 20000;
+      document.getElementById('recommendedPlanName').textContent = 'Standard Clean + Dashboard';
+      document.getElementById('recommendedPlanScope').textContent = 'Up to 3 sheets, 25,000 rows · Clean file, Change Log & 6-chart Dashboard';
+    }
+
+    recalculateQuote();
+    document.getElementById('healthReportSection').classList.remove('hidden');
+    document.getElementById('healthReportSection').scrollIntoView({ behavior: 'smooth' });
+  }
+
+  function recalculateQuote() {
+    const isRush = document.getElementById('rushAddonCheckbox').checked;
+    const finalPrice = isRush ? Math.round(baseQuoteNaira * 1.5) : baseQuoteNaira;
+    document.getElementById('finalQuotePrice').textContent = '₦' + finalPrice.toLocaleString();
+    document.getElementById('deliveryPromiseBadge').textContent = isRush ? '24-Hour Rush Delivery' : '48-Hour Delivery';
+  }
+
+  function startPaystackCheckout() {
+    const email = document.getElementById('customerEmail').value.trim();
+    if (!email || !email.includes('@')) {
+      alert('Please enter your email address so we can send your clean file and change log.');
+      return;
+    }
+
+    const isRush = document.getElementById('rushAddonCheckbox').checked;
+    const amountNaira = isRush ? Math.round(baseQuoteNaira * 1.5) : baseQuoteNaira;
+    const generatedRef = 'CS-' + Math.floor((Math.random() * 1000000000) + 1);
+
+    const handler = PaystackPop.setup({
+      key: 'pk_test_7406ff52abdf2e30794aad3f66f69c36e487b41b',
+      email: email,
+      amount: amountNaira * 100, // Paystack expects amount in Kobo
+      currency: 'NGN',
+      ref: generatedRef,
+      metadata: {
+        custom_fields: [
+          { display_name: 'File Name', variable_name: 'file_name', value: currentFileMeta.fileName || 'Uploaded Sheet' },
+          { display_name: 'Rush 24h', variable_name: 'rush_delivery', value: isRush ? 'Yes' : 'No' }
+        ]
+      },
+      callback: async function(response) {
+        // Payment successful! Now save order to Neon Database via Express backend
+        const orderPayload = {
+          email: email,
+          orderReference: generatedRef,
+          fileName: currentFileMeta.fileName || 'sales_sheet.xlsx',
+          fileSize: currentFileMeta.fileSize || 0,
+          planType: document.getElementById('recommendedPlanName').textContent,
+          amountNaira: amountNaira,
+          isRush: isRush
+        };
+
+        try {
+          const apiResponse = await fetch('http://localhost:3000/api/orders', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(orderPayload)
+          });
+          const result = await apiResponse.json();
+
+          if (result.success) {
+            alert(`Payment Confirmed! Order saved to Neon. Reference: ${generatedRef}`);
+          } else {
+            alert('Payment successful, but failed to save order to database: ' + result.error);
+          }
+        } catch (err) {
+          console.error('Backend connection error:', err);
+          alert('Payment successful, but could not reach backend server to save order.');
+        }
+      },
+      onClose: function() {
+        console.log('Checkout window closed.');
+      }
+    });
+    handler.openIframe();
+  }
+</script>
+</body>
+</html>

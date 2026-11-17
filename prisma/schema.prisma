@@ -1,0 +1,39 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  createdAt DateTime @default(now())
+  orders    Order[]
+}
+
+model Order {
+  id              String      @id @default(uuid())
+  orderReference  String      @unique
+  customerEmail   String
+  customer        Customer    @relation(fields: [customerEmail], references: [email])
+  fileName        String
+  fileSize        Int
+  planType        String
+  amountNaira     Int
+  isRush          Boolean     @default(false)
+  status          OrderStatus @default(RECEIVED)
+  deadlineAt      DateTime
+  changeLog       String?
+  createdAt       DateTime    @default(now())
+}
+
+enum OrderStatus {
+  RECEIVED
+  CLEANING
+  DASHBOARD
+  QA_CHECK
+  DELIVERED
+}

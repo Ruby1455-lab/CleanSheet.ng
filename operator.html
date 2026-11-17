@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" class="scroll-smooth">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Operator Queue | CleanSheet.ng</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Plus Jakarta Sans', sans-serif; }
+  </style>
+</head>
+<body class="bg-slate-900 text-slate-100 antialiased min-h-screen flex flex-col">
+
+  <!-- Top Operator Bar -->
+  <header class="bg-slate-950 border-b border-slate-800 sticky top-0 z-40">
+    <div class="max-w-6xl mx-auto px-5 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <span class="text-lg font-extrabold tracking-tight text-white">CleanSheet<span class="text-emerald-400">.ng</span></span>
+        <span class="px-2.5 py-0.5 rounded-full bg-emerald-500/20 border border-emerald-500/30 text-emerald-400 text-[11px] font-bold uppercase tracking-wider">
+          Operator Console (F5)
+        </span>
+      </div>
+      <div class="flex items-center space-x-4 text-xs font-semibold text-slate-400">
+        <span>Active Queue: <strong class="text-white">3 Orders</strong></span>
+        <span class="text-slate-600">|</span>
+        <span class="text-emerald-400">Status: Online</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content Layout -->
+  <main class="max-w-6xl mx-auto px-5 py-8 flex-grow w-full grid lg:grid-cols-3 gap-8">
+
+    <!-- Left Column: Active Order Queue List (F5) -->
+    <div class="lg:col-span-1 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Incoming Queue</h2>
+        <span class="text-xs text-slate-500 font-mono">Sorted by urgency</span>
+      </div>
+
+      <div class="space-y-3" id="orderQueueList">
+        <!-- Order Card 1 (Active Selection) -->
+        <div onclick="selectOrder('CS-2026-884')" id="card-CS-2026-884" class="cursor-pointer bg-slate-800 border-2 border-emerald-500 rounded-2xl p-4 transition hover:bg-slate-750">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-emerald-400">#CS-2026-884</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">Cleaning</span>
+          </div>
+          <p class="text-sm font-bold text-white mt-2">sales_records_2026.xlsx</p>
+          <p class="text-xs text-slate-400 mt-0.5">Standard Clean + Dashboard · ₦20,000</p>
+          <div class="mt-3 pt-3 border-t border-slate-700 flex items-center justify-between text-[11px] text-slate-400">
+            <span>⏱ 41h 18m left</span>
+            <span class="text-emerald-400 font-bold">View Details →</span>
+          </div>
+        </div>
+
+        <!-- Order Card 2 -->
+        <div onclick="selectOrder('CS-2026-885')" id="card-CS-2026-885" class="cursor-pointer bg-slate-800 border border-slate-700 rounded-2xl p-4 transition hover:border-slate-500">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-slate-400">#CS-2026-885</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300">Received</span>
+          </div>
+          <p class="text-sm font-bold text-white mt-2">inventory_q3.csv</p>
+          <p class="text-xs text-slate-400 mt-0.5">Starter Clean · ₦7,500</p>
+          <div class="mt-3 pt-3 border-t border-slate-700 flex items-center justify-between text-[11px] text-slate-400">
+            <span>⏱ 47h 02m left</span>
+            <span class="text-slate-300">View Details →</span>
+          </div>
+        </div>
+
+        <!-- Order Card 3 -->
+        <div onclick="selectOrder('CS-2026-886')" id="card-CS-2026-886" class="cursor-pointer bg-slate-800 border border-slate-700 rounded-2xl p-4 transition hover:border-slate-500">
+          <div class="flex items-center justify-between">
+            <span class="text-xs font-mono font-bold text-slate-400">#CS-2026-886</span>
+            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300">Rush 24h</span>
+          </div>
+          <p class="text-sm font-bold text-white mt-2">pharmacy_dispense.xlsx</p>
+          <p class="text-xs text-slate-400 mt-0.5">Standard Clean + Dashboard · ₦30,000</p>
+          <div class="mt-3 pt-3 border-t border-slate-700 flex items-center justify-between text-[11px] text-slate-400">
+            <span>⏱ 21h 45m left</span>
+            <span class="text-slate-300">View Details →</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Column: Order Detail & Operator Action Workspace (F5 & F7) -->
+    <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl p-6 sm:p-8 flex flex-col justify-between">
+      
+      <div>
+        <!-- Order Header Header -->
+        <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700 pb-5">
+          <div>
+            <span id="detailOrderId" class="text-xs font-mono font-bold text-emerald-400">#CS-2026-884</span>
+            <h3 id="detailFileName" class="text-xl font-extrabold text-white mt-0.5">sales_records_2026.xlsx</h3>
+            <p class="text-xs text-slate-400 mt-1">Customer: <strong id="detailCustomer" class="text-slate-200">tunde.bakare@gmail.com</strong></p>
+          </div>
+          <div class="text-right">
+            <span class="block text-[10px] uppercase tracking-wider text-slate-400">Plan & Amount</span>
+            <span id="detailPlan" class="text-lg font-bold text-white">Standard Clean (₦20,000)</span>
+          </div>
+        </div>
+
+        <!-- Health Diagnostic Summary -->
+        <div class="mt-6">
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Diagnostic Mess Breakdown</h4>
+          <div class="grid sm:grid-cols-4 gap-3 text-center text-xs">
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
+              <span id="statRows" class="block text-base font-bold text-white">4,820</span>
+              <span class="text-[10px] text-slate-400">Total Rows</span>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
+              <span id="statBlanks" class="block text-base font-bold text-amber-400">142</span>
+              <span class="text-[10px] text-slate-400">Blank Rows</span>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
+              <span id="statDups" class="block text-base font-bold text-rose-400">38</span>
+              <span class="text-[10px] text-slate-400">Duplicates</span>
+            </div>
+            <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
+              <span id="statTextNums" class="block text-base font-bold text-blue-400">210</span>
+              <span class="text-[10px] text-slate-400">Text-Numbers</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Step 1: Download Original & Rule Checklist -->
+        <div class="mt-6 space-y-4">
+          <div class="flex items-center justify-between bg-slate-900 p-4 rounded-xl border border-slate-700">
+            <div>
+              <p class="text-sm font-bold text-white">1. Download Original Raw File</p>
+              <p class="text-xs text-slate-400">Original file remains untouched (F10 / Trust principle)</p>
+            </div>
+            <button onclick="alert('Downloading original raw file for inspection...')" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition">
+              Download .xlsx
+            </button>
+          </div>
+
+          <!-- Cleaning Rule Checklist (Operator Guidance) -->
+          <div class="bg-slate-900 p-4 rounded-xl border border-slate-700">
+            <p class="text-sm font-bold text-white mb-2">2. Execution Checklist (Rule Library)</p>
+            <ul class="space-y-2 text-xs text-slate-300">
+              <li class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-500 rounded" /> Strip trailing/leading whitespace and hidden characters</li>
+              <li class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-500 rounded" /> Remove blank rows and exact duplicate signature rows</li>
+              <li class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-500 rounded" /> Convert text-formatted currency strings into standard numeric values</li>
+              <li class="flex items-center gap-2"><input type="checkbox" class="accent-emerald-500 rounded" /> Build 6-chart KPI dashboard on Summary tab</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Step 2: Deliverable Uploader & Change Log Input (F7) -->
+      <div class="mt-8 pt-6 border-t border-slate-700">
+        <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">3. Upload Deliverables & Change Log</h4>
+        
+        <div class="space-y-3">
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-400 mb-1">Upload Final Cleaned Spreadsheet (.xlsx)</label>
+            <input type="file" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-500 file:text-slate-950 hover:file:bg-emerald-400 cursor-pointer bg-slate-900 border border-slate-700 rounded-xl p-2" />
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-semibold text-slate-400 mb-1">Write Change Log Summary (Bullet points for customer)</label>
+            <textarea rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500" placeholder="- Removed 142 blank rows&#10;- Deduplicated 38 duplicate records&#10;- Converted 210 text cells to numeric currency format"></textarea>
+          </div>
+
+          <button onclick="markOrderDelivered()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs uppercase tracking-widest py-4 rounded-xl shadow-lg transition">
+            Mark Order Delivered & Notify Customer →
+          </button>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+
+  <script>
+    const mockOrders = {
+      'CS-2026-884': { file: 'sales_records_2026.xlsx', customer: 'tunde.bakare@gmail.com', plan: 'Standard Clean (₦20,000)', rows: '4,820', blanks: '142', dups: '38', textNums: '210' },
+      'CS-2026-885': { file: 'inventory_q3.csv', customer: 'ada.eze@pharma.ng', plan: 'Starter Clean (₦7,500)', rows: '1,250', blanks: '12', dups: '3', textNums: '45' },
+      'CS-2026-886': { file: 'pharmacy_dispense.xlsx', customer: 'dr.kofi@medclinic.org', plan: 'Standard Clean + Dashboard (₦30,000)', rows: '12,400', blanks: '410', dups: '85', textNums: '620' }
+    };
+
+    function selectOrder(orderId) {
+      // Highlight active card
+      ['CS-2026-884', 'CS-2026-885', 'CS-2026-886'].forEach(id => {
+        const card = document.getElementById('card-' + id);
+        if (id === orderId) {
+          card.className = 'cursor-pointer bg-slate-800 border-2 border-emerald-500 rounded-2xl p-4 transition hover:bg-slate-750';
+        } else {
+          card.className = 'cursor-pointer bg-slate-800 border border-slate-700 rounded-2xl p-4 transition hover:border-slate-500';
+        }
+      });
+
+      const data = mockOrders[orderId];
+      document.getElementById('detailOrderId').textContent = '#' + orderId;
+      document.getElementById('detailFileName').textContent = data.file;
+      document.getElementById('detailCustomer').textContent = data.customer;
+      document.getElementById('detailPlan').textContent = data.plan;
+      document.getElementById('statRows').textContent = data.rows;
+      document.getElementById('statBlanks').textContent = data.blanks;
+      document.getElementById('statDups').textContent = data.dups;
+      document.getElementById('statTextNums').textContent = data.textNums;
+    }
+
+    function markOrderDelivered() {
+      alert('Order successfully marked as delivered! Email and WhatsApp notifications triggered to customer.');
+    }
+  </script>
+</body>
+</html>
