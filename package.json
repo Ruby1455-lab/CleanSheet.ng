@@ -4,7 +4,8 @@
   "description": "Backend and SaaS engine for ExcelRescue / CleanSheet.ng",
   "main": "server.js",
   "scripts": {
-    "build":"prisma generate",
+    "build": "prisma generate",
+    "postinstall": "prisma generate",
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
@@ -22,8 +23,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.19.2",
-    "prisma": "^5.10.0",
+    "prisma": "^5.22.0",
     "xlsx": "^0.18.5"
   }
 }
-
