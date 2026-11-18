@@ -4,7 +4,7 @@
   "description": "Backend and SaaS engine for ExcelRescue / CleanSheet.ng",
   "main": "server.js",
   "scripts": {
-    "build": "node ./node_modules/prisma/build/index.js generate",
+    "build":"prisma generate",
     "start": "node server.js",
     "dev": "node --watch server.js"
   },
