@@ -18,7 +18,29 @@ app.get('/', (req, res) => {
 // 2. Create a new order when a user checks out
 app.post('/api/orders', async (req, res) => {
   try {
-    const { email, orderReference, fileName, fileSize, planType, amountNaira, isRush } = req.body;
+    const rawEmail = req.body.email || req.body.customerEmail;
+    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
+    const orderReference =
+      typeof req.body.orderReference === 'string' ? req.body.orderReference.trim() : '';
+    const fileName = typeof req.body.fileName === 'string' ? req.body.fileName.trim() : '';
+    const planType = typeof req.body.planType === 'string' ? req.body.planType.trim() : '';
+    const fileSize = Number(req.body.fileSize);
+    const amountNaira = Number(req.body.amountNaira);
+    const isRush = Boolean(req.body.isRush);
+
+    if (!email || !orderReference || !fileName || !planType) {
+      return res.status(400).json({
+        success: false,
+        error: 'email, orderReference, fileName, and planType are required',
+      });
+    }
+
+    if (!Number.isInteger(fileSize) || fileSize < 0 || !Number.isInteger(amountNaira) || amountNaira < 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'fileSize and amountNaira must be valid non-negative integers',
+      });
+    }
 
     // Ensure customer exists or create them
     const customer = await prisma.customer.upsert({
@@ -45,10 +67,29 @@ app.post('/api/orders', async (req, res) => {
       },
     });
 
-    res.status(201).json({ success: true, order });
+    return res.status(201).json({ success: true, order });
   } catch (error) {
     console.error('Error creating order:', error);
-    res.status(500).json({ success: false, error: 'Failed to create order' });
+
+    if (error.code === 'P2002') {
+      return res.status(409).json({
+        success: false,
+        error: 'An order with this orderReference already exists',
+      });
+    }
+
+    if (error.code === 'P2000' || error.code === 'P2025') {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid data provided for order creation',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to create order',
+      details: error.message,
+    });
   }
 });
 
@@ -58,10 +99,10 @@ app.get('/api/operator/orders', async (req, res) => {
     const orders = await prisma.order.findMany({
       orderBy: { createdAt: 'desc' },
     });
-    res.json({ success: true, orders });
+    return res.json({ success: true, orders });
   } catch (error) {
     console.error('Error fetching orders:', error);
-    res.status(500).json({ success: false, error: 'Failed to fetch orders' });
+    return res.status(500).json({ success: false, error: 'Failed to fetch orders' });
   }
 });
 
