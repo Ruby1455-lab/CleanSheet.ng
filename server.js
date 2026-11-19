@@ -7,6 +7,14 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
+const VALID_ORDER_STATUSES = [
+  'RECEIVED',
+  'CLEANING',
+  'DASHBOARD',
+  'QA_CHECK',
+  'DELIVERED',
+];
+
 app.use(cors());
 app.use(express.json());
 
@@ -102,7 +110,67 @@ app.get('/api/operator/orders', async (req, res) => {
     return res.json({ success: true, orders });
   } catch (error) {
     console.error('Error fetching orders:', error);
-    return res.status(500).json({ success: false, error: 'Failed to fetch orders' });
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to fetch orders',
+      details: error.message,
+    });
+  }
+});
+
+// 4. Update order status and optional changeLog from the operator console
+app.patch('/api/orders/:id/status', async (req, res) => {
+  try {
+    const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
+    const rawStatus =
+      typeof req.body.status === 'string' ? req.body.status.trim().toUpperCase() : '';
+    const hasChangeLog = Object.prototype.hasOwnProperty.call(req.body, 'changeLog');
+    const changeLog =
+      hasChangeLog && req.body.changeLog !== null ? String(req.body.changeLog).trim() : undefined;
+
+    if (!id) {
+      return res.status(400).json({
+        success: false,
+        error: 'Order id is required',
+      });
+    }
+
+    if (!VALID_ORDER_STATUSES.includes(rawStatus)) {
+      return res.status(400).json({
+        success: false,
+        error: `Invalid status. Allowed values: ${VALID_ORDER_STATUSES.join(', ')}`,
+      });
+    }
+
+    const data = {
+      status: rawStatus,
+    };
+
+    if (hasChangeLog) {
+      data.changeLog = changeLog || null;
+    }
+
+    const updatedOrder = await prisma.order.update({
+      where: { id },
+      data,
+    });
+
+    return res.json({ success: true, order: updatedOrder });
+  } catch (error) {
+    console.error('Error updating order status:', error);
+
+    if (error.code === 'P2025') {
+      return res.status(404).json({
+        success: false,
+        error: 'Order not found',
+      });
+    }
+
+    return res.status(500).json({
+      success: false,
+      error: 'Failed to update order status',
+      details: error.message,
+    });
   }
 });
 
