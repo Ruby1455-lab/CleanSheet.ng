@@ -22,9 +22,12 @@
         </span>
       </div>
       <div class="flex items-center space-x-4 text-xs font-semibold text-slate-400">
-        <span>Active Queue: <strong class="text-white">3 Orders</strong></span>
-        <span class="text-slate-600">|</span>
-        <span class="text-emerald-400">Status: Online</span>
+        <span>Active Queue: <strong id="queueCountLabel" class="text-white">0 Orders</strong></span>
+        <button type="button" onclick="loadOrders()" class="bg-slate-800 hover:bg-slate-700 text-slate-200 px-3 py-1.5 rounded-lg border border-slate-700 transition">
+          Refresh
+        </button>
+        <span class="hidden sm:inline text-slate-600">|</span>
+        <span id="connectionStatusLabel" class="hidden sm:inline text-emerald-400">Status: Online</span>
       </div>
     </div>
   </header>
@@ -36,90 +39,52 @@
     <div class="lg:col-span-1 space-y-4">
       <div class="flex items-center justify-between">
         <h2 class="text-xs font-bold uppercase tracking-wider text-slate-400">Incoming Queue</h2>
-        <span class="text-xs text-slate-500 font-mono">Sorted by urgency</span>
+        <span class="text-xs text-slate-500 font-mono">Newest first</span>
       </div>
 
       <div class="space-y-3" id="orderQueueList">
-        <!-- Order Card 1 (Active Selection) -->
-        <div onclick="selectOrder('CS-2026-884')" id="card-CS-2026-884" class="cursor-pointer bg-slate-800 border-2 border-emerald-500 rounded-2xl p-4 transition hover:bg-slate-750">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-mono font-bold text-emerald-400">#CS-2026-884</span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">Cleaning</span>
-          </div>
-          <p class="text-sm font-bold text-white mt-2">sales_records_2026.xlsx</p>
-          <p class="text-xs text-slate-400 mt-0.5">Standard Clean + Dashboard · ₦20,000</p>
-          <div class="mt-3 pt-3 border-t border-slate-700 flex items-center justify-between text-[11px] text-slate-400">
-            <span>⏱ 41h 18m left</span>
-            <span class="text-emerald-400 font-bold">View Details →</span>
-          </div>
-        </div>
-
-        <!-- Order Card 2 -->
-        <div onclick="selectOrder('CS-2026-885')" id="card-CS-2026-885" class="cursor-pointer bg-slate-800 border border-slate-700 rounded-2xl p-4 transition hover:border-slate-500">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-mono font-bold text-slate-400">#CS-2026-885</span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-300">Received</span>
-          </div>
-          <p class="text-sm font-bold text-white mt-2">inventory_q3.csv</p>
-          <p class="text-xs text-slate-400 mt-0.5">Starter Clean · ₦7,500</p>
-          <div class="mt-3 pt-3 border-t border-slate-700 flex items-center justify-between text-[11px] text-slate-400">
-            <span>⏱ 47h 02m left</span>
-            <span class="text-slate-300">View Details →</span>
-          </div>
-        </div>
-
-        <!-- Order Card 3 -->
-        <div onclick="selectOrder('CS-2026-886')" id="card-CS-2026-886" class="cursor-pointer bg-slate-800 border border-slate-700 rounded-2xl p-4 transition hover:border-slate-500">
-          <div class="flex items-center justify-between">
-            <span class="text-xs font-mono font-bold text-slate-400">#CS-2026-886</span>
-            <span class="px-2 py-0.5 rounded text-[10px] font-bold bg-purple-500/20 text-purple-300">Rush 24h</span>
-          </div>
-          <p class="text-sm font-bold text-white mt-2">pharmacy_dispense.xlsx</p>
-          <p class="text-xs text-slate-400 mt-0.5">Standard Clean + Dashboard · ₦30,000</p>
-          <div class="mt-3 pt-3 border-t border-slate-700 flex items-center justify-between text-[11px] text-slate-400">
-            <span>⏱ 21h 45m left</span>
-            <span class="text-slate-300">View Details →</span>
-          </div>
-        </div>
+        <p class="text-xs text-slate-400 bg-slate-800 border border-slate-700 rounded-2xl p-4">
+          Loading live orders from CleanSheet server...
+        </p>
       </div>
     </div>
 
     <!-- Right Column: Order Detail & Operator Action Workspace (F5 & F7) -->
     <div class="lg:col-span-2 bg-slate-800 border border-slate-700 rounded-2xl p-6 sm:p-8 flex flex-col justify-between">
-      
+
       <div>
-        <!-- Order Header Header -->
+        <!-- Order Header -->
         <div class="flex flex-wrap items-center justify-between gap-4 border-b border-slate-700 pb-5">
           <div>
-            <span id="detailOrderId" class="text-xs font-mono font-bold text-emerald-400">#CS-2026-884</span>
-            <h3 id="detailFileName" class="text-xl font-extrabold text-white mt-0.5">sales_records_2026.xlsx</h3>
-            <p class="text-xs text-slate-400 mt-1">Customer: <strong id="detailCustomer" class="text-slate-200">tunde.bakare@gmail.com</strong></p>
+            <span id="detailOrderId" class="text-xs font-mono font-bold text-emerald-400">#NO-ORDER</span>
+            <h3 id="detailFileName" class="text-xl font-extrabold text-white mt-0.5">Select an order from the queue</h3>
+            <p class="text-xs text-slate-400 mt-1">Customer: <strong id="detailCustomer" class="text-slate-200">—</strong></p>
           </div>
           <div class="text-right">
             <span class="block text-[10px] uppercase tracking-wider text-slate-400">Plan & Amount</span>
-            <span id="detailPlan" class="text-lg font-bold text-white">Standard Clean (₦20,000)</span>
+            <span id="detailPlan" class="text-lg font-bold text-white">—</span>
           </div>
         </div>
 
-        <!-- Health Diagnostic Summary -->
+        <!-- Order Metadata Summary -->
         <div class="mt-6">
-          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Diagnostic Mess Breakdown</h4>
+          <h4 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3">Order & Turnaround Summary</h4>
           <div class="grid sm:grid-cols-4 gap-3 text-center text-xs">
             <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
-              <span id="statRows" class="block text-base font-bold text-white">4,820</span>
-              <span class="text-[10px] text-slate-400">Total Rows</span>
+              <span id="statRows" class="block text-base font-bold text-white">—</span>
+              <span class="text-[10px] text-slate-400">File Size</span>
             </div>
             <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
-              <span id="statBlanks" class="block text-base font-bold text-amber-400">142</span>
-              <span class="text-[10px] text-slate-400">Blank Rows</span>
+              <span id="statBlanks" class="block text-base font-bold text-amber-400">—</span>
+              <span class="text-[10px] text-slate-400">Turnaround Tier</span>
             </div>
             <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
-              <span id="statDups" class="block text-base font-bold text-rose-400">38</span>
-              <span class="text-[10px] text-slate-400">Duplicates</span>
+              <span id="statDups" class="block text-base font-bold text-rose-400">—</span>
+              <span class="text-[10px] text-slate-400">Current Stage</span>
             </div>
             <div class="bg-slate-900 p-3 rounded-xl border border-slate-700">
-              <span id="statTextNums" class="block text-base font-bold text-blue-400">210</span>
-              <span class="text-[10px] text-slate-400">Text-Numbers</span>
+              <span id="statTextNums" class="block text-base font-bold text-blue-400">—</span>
+              <span class="text-[10px] text-slate-400">Time Remaining</span>
             </div>
           </div>
         </div>
@@ -131,7 +96,7 @@
               <p class="text-sm font-bold text-white">1. Download Original Raw File</p>
               <p class="text-xs text-slate-400">Original file remains untouched (F10 / Trust principle)</p>
             </div>
-            <button onclick="alert('Downloading original raw file for inspection...')" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition">
+            <button type="button" onclick="alert('Original raw file storage will connect once file upload bucket is enabled.')" class="bg-slate-700 hover:bg-slate-600 text-white px-4 py-2 rounded-lg text-xs font-bold transition">
               Download .xlsx
             </button>
           </div>
@@ -143,30 +108,47 @@
               <li class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-500 rounded" /> Strip trailing/leading whitespace and hidden characters</li>
               <li class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-500 rounded" /> Remove blank rows and exact duplicate signature rows</li>
               <li class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-500 rounded" /> Convert text-formatted currency strings into standard numeric values</li>
-              <li class="flex items-center gap-2"><input type="checkbox" class="accent-emerald-500 rounded" /> Build 6-chart KPI dashboard on Summary tab</li>
+              <li class="flex items-center gap-2"><input type="checkbox" checked class="accent-emerald-500 rounded" /> Build 6-chart KPI dashboard on Summary tab</li>
             </ul>
           </div>
         </div>
       </div>
 
-      <!-- Step 2: Deliverable Uploader & Change Log Input (F7) -->
+      <!-- Step 2: Stage Controls, Deliverable Uploader & Change Log Input (F7) -->
       <div class="mt-8 pt-6 border-t border-slate-700">
-        <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">3. Upload Deliverables & Change Log</h4>
-        
+        <h4 class="text-xs font-bold uppercase tracking-wider text-emerald-400 mb-3">3. Update Pipeline Stage, Deliverables & Change Log</h4>
+
         <div class="space-y-3">
           <div>
+            <label class="block text-[11px] font-semibold text-slate-400 mb-1">Order Pipeline Stage</label>
+            <div class="flex gap-2">
+              <select id="statusSelect" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500">
+                <option value="RECEIVED">RECEIVED</option>
+                <option value="CLEANING">CLEANING</option>
+                <option value="DASHBOARD">DASHBOARD</option>
+                <option value="QA_CHECK">QA_CHECK</option>
+                <option value="DELIVERED">DELIVERED</option>
+              </select>
+              <button id="saveProgressBtn" type="button" onclick="saveOrderProgress()" class="bg-slate-700 hover:bg-slate-600 text-white font-bold text-xs px-4 py-3 rounded-xl transition">
+                Save Stage
+              </button>
+            </div>
+          </div>
+
+          <div>
             <label class="block text-[11px] font-semibold text-slate-400 mb-1">Upload Final Cleaned Spreadsheet (.xlsx)</label>
-            <input type="file" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-500 file:text-slate-950 hover:file:bg-emerald-400 cursor-pointer bg-slate-900 border border-slate-700 rounded-xl p-2" />
+            <input id="cleanedFileInput" type="file" accept=".xlsx,.xls,.csv" class="w-full text-xs text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-bold file:bg-emerald-500 file:text-slate-950 hover:file:bg-emerald-400 cursor-pointer bg-slate-900 border border-slate-700 rounded-xl p-2" />
           </div>
 
           <div>
             <label class="block text-[11px] font-semibold text-slate-400 mb-1">Write Change Log Summary (Bullet points for customer)</label>
-            <textarea rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500" placeholder="- Removed 142 blank rows&#10;- Deduplicated 38 duplicate records&#10;- Converted 210 text cells to numeric currency format"></textarea>
+            <textarea id="changeLogInput" rows="3" class="w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500" placeholder="- Removed 142 blank rows&#10;- Deduplicated 38 duplicate records&#10;- Converted 210 text cells to numeric currency format"></textarea>
           </div>
 
-          <button onclick="markOrderDelivered()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs uppercase tracking-widest py-4 rounded-xl shadow-lg transition">
+          <button id="deliverBtn" type="button" onclick="markOrderDelivered()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs uppercase tracking-widest py-4 rounded-xl shadow-lg transition">
             Mark Order Delivered & Notify Customer →
           </button>
+          <p id="operatorFeedback" class="hidden text-xs font-semibold text-emerald-400 pt-1"></p>
         </div>
       </div>
 
@@ -175,37 +157,224 @@
   </main>
 
   <script>
-    const mockOrders = {
-      'CS-2026-884': { file: 'sales_records_2026.xlsx', customer: 'tunde.bakare@gmail.com', plan: 'Standard Clean (₦20,000)', rows: '4,820', blanks: '142', dups: '38', textNums: '210' },
-      'CS-2026-885': { file: 'inventory_q3.csv', customer: 'ada.eze@pharma.ng', plan: 'Starter Clean (₦7,500)', rows: '1,250', blanks: '12', dups: '3', textNums: '45' },
-      'CS-2026-886': { file: 'pharmacy_dispense.xlsx', customer: 'dr.kofi@medclinic.org', plan: 'Standard Clean + Dashboard (₦30,000)', rows: '12,400', blanks: '410', dups: '85', textNums: '620' }
-    };
+    const API_BASE = 'https://cleansheet-ng.onrender.com';
+    let ordersCache = [];
+    let selectedOrderId = null;
+
+    function formatFileSize(bytes) {
+      const n = Number(bytes) || 0;
+      if (n < 1024) return n + ' B';
+      if (n < 1024 * 1024) return (n / 1024).toFixed(1) + ' KB';
+      return (n / (1024 * 1024)).toFixed(2) + ' MB';
+    }
+
+    function formatTimeRemaining(order) {
+      if (order.status === 'DELIVERED') return 'Delivered';
+      if (!order.deadlineAt) return 'N/A';
+      const diffMs = new Date(order.deadlineAt).getTime() - Date.now();
+      if (diffMs <= 0) return 'Overdue / Due';
+      const hours = Math.floor(diffMs / (1000 * 60 * 60));
+      const mins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60));
+      return `${hours}h ${mins}m left`;
+    }
+
+    function getStatusBadgeClass(status) {
+      switch (status) {
+        case 'CLEANING':
+          return 'bg-amber-500/20 text-amber-300';
+        case 'DASHBOARD':
+          return 'bg-purple-500/20 text-purple-300';
+        case 'QA_CHECK':
+          return 'bg-cyan-500/20 text-cyan-300';
+        case 'DELIVERED':
+          return 'bg-emerald-500/20 text-emerald-300';
+        case 'RECEIVED':
+        default:
+          return 'bg-blue-500/20 text-blue-300';
+      }
+    }
+
+    function setFeedback(message, isError = false) {
+      const el = document.getElementById('operatorFeedback');
+      el.textContent = message;
+      el.className = `text-xs font-semibold pt-1 ${isError ? 'text-rose-400' : 'text-emerald-400'}`;
+      el.classList.remove('hidden');
+    }
+
+    function renderQueueList() {
+      const listEl = document.getElementById('orderQueueList');
+      document.getElementById('queueCountLabel').textContent = `${ordersCache.length} ${ordersCache.length === 1 ? 'Order' : 'Orders'}`;
+
+      if (ordersCache.length === 0) {
+        listEl.innerHTML = `
+          <div class="bg-slate-800 border border-slate-700 rounded-2xl p-5 text-xs text-slate-400">
+            No orders in the queue yet. Once a customer checks out, new orders appear here automatically.
+          </div>
+        `;
+        return;
+      }
+
+      listEl.innerHTML = ordersCache.map(order => {
+        const isActive = order.id === selectedOrderId;
+        const cardBorder = isActive
+          ? 'border-2 border-emerald-500'
+          : 'border border-slate-700 hover:border-slate-500';
+        const idColor = isActive ? 'text-emerald-400' : 'text-slate-400';
+
+        return `
+          <div onclick="selectOrder('${order.id}')" id="card-${order.id}" class="cursor-pointer bg-slate-800 ${cardBorder} rounded-2xl p-4 transition">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-mono font-bold ${idColor}">#${order.orderReference}</span>
+              <div class="flex items-center gap-1.5">
+                ${order.isRush ? '<span class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-500/20 text-amber-300">RUSH</span>' : ''}
+                <span class="px-2 py-0.5 rounded text-[10px] font-bold ${getStatusBadgeClass(order.status)}">${order.status}</span>
+              </div>
+            </div>
+            <p class="text-sm font-bold text-white mt-2 truncate">${order.fileName}</p>
+            <p class="text-xs text-slate-400 mt-0.5 truncate">${order.planType} · ₦${Number(order.amountNaira).toLocaleString()}</p>
+            <div class="mt-3 pt-3 border-t border-slate-700 flex items-center justify-between text-[11px] text-slate-400">
+              <span>⏱ ${formatTimeRemaining(order)}</span>
+              <span class="${isActive ? 'text-emerald-400 font-bold' : 'text-slate-300'}">View Details →</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
 
     function selectOrder(orderId) {
-      // Highlight active card
-      ['CS-2026-884', 'CS-2026-885', 'CS-2026-886'].forEach(id => {
-        const card = document.getElementById('card-' + id);
-        if (id === orderId) {
-          card.className = 'cursor-pointer bg-slate-800 border-2 border-emerald-500 rounded-2xl p-4 transition hover:bg-slate-750';
-        } else {
-          card.className = 'cursor-pointer bg-slate-800 border border-slate-700 rounded-2xl p-4 transition hover:border-slate-500';
+      selectedOrderId = orderId;
+      renderQueueList();
+
+      const order = ordersCache.find(o => o.id === orderId);
+      if (!order) return;
+
+      document.getElementById('detailOrderId').textContent = '#' + order.orderReference;
+      document.getElementById('detailFileName').textContent = order.fileName;
+      document.getElementById('detailCustomer').textContent = order.customerEmail;
+      document.getElementById('detailPlan').textContent = `${order.planType} (₦${Number(order.amountNaira).toLocaleString()})`;
+
+      document.getElementById('statRows').textContent = formatFileSize(order.fileSize);
+      document.getElementById('statBlanks').textContent = order.isRush ? 'Rush' : 'Standard';
+      document.getElementById('statDups').textContent = order.status;
+      document.getElementById('statTextNums').textContent = formatTimeRemaining(order);
+
+      document.getElementById('statusSelect').value = order.status;
+      document.getElementById('changeLogInput').value = order.changeLog || '';
+    }
+
+    async function loadOrders() {
+      const statusEl = document.getElementById('connectionStatusLabel');
+      statusEl.textContent = 'Status: Syncing...';
+      statusEl.className = 'hidden sm:inline text-amber-400';
+
+      try {
+        const res = await fetch(`${API_BASE}/api/operator/orders`, { cache: 'no-store' });
+        const data = await res.json();
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || `HTTP ${res.status}`);
         }
-      });
 
-      const data = mockOrders[orderId];
-      document.getElementById('detailOrderId').textContent = '#' + orderId;
-      document.getElementById('detailFileName').textContent = data.file;
-      document.getElementById('detailCustomer').textContent = data.customer;
-      document.getElementById('detailPlan').textContent = data.plan;
-      document.getElementById('statRows').textContent = data.rows;
-      document.getElementById('statBlanks').textContent = data.blanks;
-      document.getElementById('statDups').textContent = data.dups;
-      document.getElementById('statTextNums').textContent = data.textNums;
+        ordersCache = Array.isArray(data.orders) ? data.orders : [];
+        statusEl.textContent = 'Status: Online';
+        statusEl.className = 'hidden sm:inline text-emerald-400';
+
+        if (ordersCache.length > 0) {
+          const nextId = selectedOrderId && ordersCache.some(o => o.id === selectedOrderId)
+            ? selectedOrderId
+            : ordersCache[0].id;
+          selectOrder(nextId);
+        } else {
+          selectedOrderId = null;
+          renderQueueList();
+          document.getElementById('detailOrderId').textContent = '#NO-ORDER';
+          document.getElementById('detailFileName').textContent = 'No orders in queue';
+          document.getElementById('detailCustomer').textContent = '—';
+          document.getElementById('detailPlan').textContent = '—';
+          document.getElementById('statRows').textContent = '—';
+          document.getElementById('statBlanks').textContent = '—';
+          document.getElementById('statDups').textContent = '—';
+          document.getElementById('statTextNums').textContent = '—';
+          document.getElementById('changeLogInput').value = '';
+        }
+      } catch (err) {
+        console.error('Failed to fetch operator orders:', err);
+        statusEl.textContent = 'Status: Reconnecting';
+        statusEl.className = 'hidden sm:inline text-rose-400';
+        document.getElementById('orderQueueList').innerHTML = `
+          <div class="bg-slate-800 border border-rose-500/40 rounded-2xl p-4 text-xs text-rose-300">
+            Could not load queue: ${err.message}
+          </div>
+        `;
+      }
     }
 
-    function markOrderDelivered() {
-      alert('Order successfully marked as delivered! Email and WhatsApp notifications triggered to customer.');
+    async function patchSelectedOrder(status, changeLog) {
+      if (!selectedOrderId) {
+        setFeedback('Select an order from the queue first.', true);
+        return null;
+      }
+
+      const saveBtn = document.getElementById('saveProgressBtn');
+      const deliverBtn = document.getElementById('deliverBtn');
+      saveBtn.disabled = true;
+      deliverBtn.disabled = true;
+
+      try {
+        const res = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(selectedOrderId)}/status`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ status, changeLog })
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || `HTTP ${res.status}`);
+        }
+
+        const idx = ordersCache.findIndex(o => o.id === selectedOrderId);
+        if (idx !== -1) {
+          ordersCache[idx] = data.order;
+        }
+        selectOrder(selectedOrderId);
+        return data.order;
+      } finally {
+        saveBtn.disabled = false;
+        deliverBtn.disabled = false;
+      }
     }
+
+    async function saveOrderProgress() {
+      const status = document.getElementById('statusSelect').value;
+      const changeLog = document.getElementById('changeLogInput').value;
+
+      try {
+        const updated = await patchSelectedOrder(status, changeLog);
+        if (updated) {
+          setFeedback(`Saved #${updated.orderReference} as ${updated.status}.`);
+        }
+      } catch (err) {
+        console.error('Error saving progress:', err);
+        setFeedback('Failed to update order: ' + err.message, true);
+      }
+    }
+
+    async function markOrderDelivered() {
+      const changeLog = document.getElementById('changeLogInput').value;
+
+      try {
+        const updated = await patchSelectedOrder('DELIVERED', changeLog);
+        if (updated) {
+          document.getElementById('statusSelect').value = 'DELIVERED';
+          setFeedback(`Order #${updated.orderReference} marked as DELIVERED and change log saved.`);
+        }
+      } catch (err) {
+        console.error('Error marking order delivered:', err);
+        setFeedback('Failed to mark delivered: ' + err.message, true);
+      }
+    }
+
+    document.addEventListener('DOMContentLoaded', loadOrders);
   </script>
 </body>
 </html>
