@@ -7,6 +7,12 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
+console.log('Env check:', {
+  OPERATOR_KEY: Boolean(process.env.OPERATOR_KEY),
+  DATABASE_URL: Boolean(process.env.DATABASE_URL),
+  PAYSTACK_SECRET_KEY: Boolean(process.env.PAYSTACK_SECRET_KEY),
+});
+
 app.use(cors());
 app.use(express.json());
 
