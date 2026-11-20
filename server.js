@@ -7,58 +7,91 @@ const app = express();
 const prisma = new PrismaClient();
 const PORT = process.env.PORT || 3000;
 
-const VALID_ORDER_STATUSES = [
-  'RECEIVED',
-  'CLEANING',
-  'DASHBOARD',
-  'QA_CHECK',
-  'DELIVERED',
-];
-
 app.use(cors());
 app.use(express.json());
+
+// Only these fields are ever sent back to the public website
+const PUBLIC_ORDER_FIELDS = {
+  orderReference: true,
+  fileName: true,
+  planType: true,
+  amountNaira: true,
+  isRush: true,
+  status: true,
+  deadlineAt: true,
+  changeLog: true,
+};
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Protects operator-only routes. Set OPERATOR_KEY in Render's Environment tab.
+function requireOperator(req, res, next) {
+  if (!process.env.OPERATOR_KEY || req.headers['x-api-key'] !== process.env.OPERATOR_KEY) {
+    return res.status(401).json({ success: false, error: 'Unauthorized' });
+  }
+  next();
+}
 
 // 1. Health check route
 app.get('/', (req, res) => {
   res.json({ status: 'active', service: 'CleanSheet.ng API' });
 });
 
-// 2. Create a new order when a user checks out
+// 2. Create an order AFTER Paystack payment is verified
 app.post('/api/orders', async (req, res) => {
   try {
-    const rawEmail = req.body.email || req.body.customerEmail;
-    const email = typeof rawEmail === 'string' ? rawEmail.trim().toLowerCase() : '';
-    const orderReference =
-      typeof req.body.orderReference === 'string' ? req.body.orderReference.trim() : '';
-    const fileName = typeof req.body.fileName === 'string' ? req.body.fileName.trim() : '';
-    const planType = typeof req.body.planType === 'string' ? req.body.planType.trim() : '';
-    const fileSize = Number(req.body.fileSize);
-    const amountNaira = Number(req.body.amountNaira);
-    const isRush = Boolean(req.body.isRush);
+    const { email, orderReference, fileName, fileSize, planType, isRush } = req.body;
 
-    if (!email || !orderReference || !fileName || !planType) {
-      return res.status(400).json({
-        success: false,
-        error: 'email, orderReference, fileName, and planType are required',
-      });
+    // Validate input
+    const cleanEmail = String(email || '').trim().toLowerCase();
+    if (!EMAIL_REGEX.test(cleanEmail) || !orderReference || !fileName || !planType) {
+      return res.status(400).json({ success: false, error: 'Missing or invalid fields' });
     }
 
-    if (!Number.isInteger(fileSize) || fileSize < 0 || !Number.isInteger(amountNaira) || amountNaira < 0) {
-      return res.status(400).json({
-        success: false,
-        error: 'fileSize and amountNaira must be valid non-negative integers',
-      });
+    // If this payment was already saved (for example the browser retried), return it
+    const existing = await prisma.order.findUnique({
+      where: { orderReference },
+      select: PUBLIC_ORDER_FIELDS,
+    });
+    if (existing) {
+      return res.status(200).json({ success: true, order: existing });
+    }
+
+    // Verify the payment with Paystack (secret key stays on the server only)
+    if (!process.env.PAYSTACK_SECRET_KEY) {
+      console.error('PAYSTACK_SECRET_KEY is not set');
+      return res.status(500).json({ success: false, error: 'Server payment setup is incomplete' });
+    }
+
+    const verifyRes = await fetch(
+      `https://api.paystack.co/transaction/verify/${encodeURIComponent(orderReference)}`,
+      { headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` } }
+    );
+    const verify = await verifyRes.json();
+
+    if (!verify.status || !verify.data || verify.data.status !== 'success') {
+      return res.status(402).json({ success: false, error: 'Payment not verified' });
+    }
+
+    // Use the amount Paystack actually charged, not the amount sent by the browser
+    const verifiedAmountNaira = Math.round(verify.data.amount / 100);
+
+    // Make sure the payer email matches the email on the order
+    const paidEmail = String(verify.data.customer?.email || '').toLowerCase();
+    if (paidEmail && paidEmail !== cleanEmail) {
+      return res.status(400).json({ success: false, error: 'Email does not match payment' });
     }
 
     // Ensure customer exists or create them
     const customer = await prisma.customer.upsert({
-      where: { email },
+      where: { email: cleanEmail },
       update: {},
-      create: { email },
+      create: { email: cleanEmail },
     });
 
     // Calculate deadline (48 hours standard, or 12 hours if rush)
-    const hoursToAdd = isRush ? 12 : 48;
+    const rush = Boolean(isRush);
+    const hoursToAdd = rush ? 12 : 48;
     const deadlineAt = new Date(Date.now() + hoursToAdd * 60 * 60 * 1000);
 
     // Create the order
@@ -66,114 +99,53 @@ app.post('/api/orders', async (req, res) => {
       data: {
         orderReference,
         customerEmail: customer.email,
-        fileName,
-        fileSize,
-        planType,
-        amountNaira,
-        isRush,
+        fileName: String(fileName),
+        fileSize: Math.round(Number(fileSize)) || 0,
+        planType: String(planType),
+        amountNaira: verifiedAmountNaira,
+        isRush: rush,
         deadlineAt,
       },
+      select: PUBLIC_ORDER_FIELDS,
     });
 
-    return res.status(201).json({ success: true, order });
+    res.status(201).json({ success: true, order });
   } catch (error) {
     console.error('Error creating order:', error);
-
-    if (error.code === 'P2002') {
-      return res.status(409).json({
-        success: false,
-        error: 'An order with this orderReference already exists',
-      });
-    }
-
-    if (error.code === 'P2000' || error.code === 'P2025') {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid data provided for order creation',
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to create order',
-      details: error.message,
-    });
+    res.status(500).json({ success: false, error: 'Failed to create order' });
   }
 });
 
-// 3. Get all orders for your operator console
-app.get('/api/operator/orders', async (req, res) => {
+// 3. Public order tracker: returns ONE order, by reference, with no email
+app.get('/api/orders/:reference', async (req, res) => {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { orderReference: req.params.reference },
+      select: PUBLIC_ORDER_FIELDS,
+    });
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Order not found' });
+    }
+    res.json({ success: true, order });
+  } catch (error) {
+    console.error('Error fetching order:', error);
+    res.status(500).json({ success: false, error: 'Failed to fetch order' });
+  }
+});
+
+// 4. All orders for your operator console (protected with x-api-key header)
+app.get('/api/operator/orders', requireOperator, async (req, res) => {
   try {
     const orders = await prisma.order.findMany({
       orderBy: { createdAt: 'desc' },
     });
-    return res.json({ success: true, orders });
+    res.json({ success: true, orders });
   } catch (error) {
     console.error('Error fetching orders:', error);
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to fetch orders',
-      details: error.message,
-    });
-  }
-});
-
-// 4. Update order status and optional changeLog from the operator console
-app.patch('/api/orders/:id/status', async (req, res) => {
-  try {
-    const id = typeof req.params.id === 'string' ? req.params.id.trim() : '';
-    const rawStatus =
-      typeof req.body.status === 'string' ? req.body.status.trim().toUpperCase() : '';
-    const hasChangeLog = Object.prototype.hasOwnProperty.call(req.body, 'changeLog');
-    const changeLog =
-      hasChangeLog && req.body.changeLog !== null ? String(req.body.changeLog).trim() : undefined;
-
-    if (!id) {
-      return res.status(400).json({
-        success: false,
-        error: 'Order id is required',
-      });
-    }
-
-    if (!VALID_ORDER_STATUSES.includes(rawStatus)) {
-      return res.status(400).json({
-        success: false,
-        error: `Invalid status. Allowed values: ${VALID_ORDER_STATUSES.join(', ')}`,
-      });
-    }
-
-    const data = {
-      status: rawStatus,
-    };
-
-    if (hasChangeLog) {
-      data.changeLog = changeLog || null;
-    }
-
-    const updatedOrder = await prisma.order.update({
-      where: { id },
-      data,
-    });
-
-    return res.json({ success: true, order: updatedOrder });
-  } catch (error) {
-    console.error('Error updating order status:', error);
-
-    if (error.code === 'P2025') {
-      return res.status(404).json({
-        success: false,
-        error: 'Order not found',
-      });
-    }
-
-    return res.status(500).json({
-      success: false,
-      error: 'Failed to update order status',
-      details: error.message,
-    });
+    res.status(500).json({ success: false, error: 'Failed to fetch orders' });
   }
 });
 
 app.listen(PORT, () => {
-  console.log(`CleanSheet.ng backend running on http://localhost:${PORT}`);
+  console.log(`CleanSheet.ng backend running on port ${PORT}`);
 });

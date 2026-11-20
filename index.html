@@ -239,159 +239,346 @@
 
   <script>
     const API_BASE = 'https://cleansheet-ng.onrender.com';
-    let liveOrders = [];
-    let selectedOrderId = null;
+    const STAGE_ORDER = ['RECEIVED', 'CLEANING', 'DASHBOARD', 'QA_CHECK', 'DELIVERED'];
+    const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-    function formatBytes(bytes) {
-      if (!bytes) return '0 B';
-      if (bytes < 1024) return bytes + ' B';
-      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-      return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    let baseQuoteNaira = 20000;
+    let currentFileMeta = {};
+    let uploadedFileObject = null;
+
+    function handleOrderSubmission(event) {
+      event.preventDefault();
     }
 
-    function formatDeadline(isoString) {
-      if (!isoString) return 'N/A';
-      return new Date(isoString).toLocaleString('en-NG', {
-        month: 'short',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-      });
-    }
-
-    async function loadOrders() {
-      const queueEl = document.getElementById('orderQueue');
-      queueEl.innerHTML = '<p class="text-xs text-slate-400 p-4">Loading orders from server...</p>';
-
-      try {
-        const res = await fetch(`${API_BASE}/api/operator/orders`, { cache: 'no-store' });
-        const data = await res.json();
-
-        if (!res.ok || !data.success) {
-          throw new Error(data.error || 'Failed to load orders');
-        }
-
-        liveOrders = data.orders;
-        renderQueue();
-
-        if (liveOrders.length > 0) {
-          const targetId = selectedOrderId && liveOrders.some(o => o.id === selectedOrderId)
-            ? selectedOrderId
-            : liveOrders[0].id;
-          selectOrder(targetId);
-        } else {
-          selectedOrderId = null;
-          queueEl.innerHTML = '<p class="text-xs text-slate-400 bg-slate-800 border border-slate-700 rounded-2xl p-4">No active orders in queue yet.</p>';
-        }
-      } catch (err) {
-        console.error('Error loading operator queue:', err);
-        queueEl.innerHTML = `<p class="text-xs text-rose-400 bg-slate-800 border border-rose-500/40 rounded-2xl p-4">Could not load orders: ${err.message}</p>`;
+    function toggleUploadState() {
+      const checked = document.getElementById('businessGateCheckbox').checked;
+      const drop = document.getElementById('dropContainer');
+      const hint = document.getElementById('gateHint');
+      if (checked) {
+        drop.classList.remove('opacity-50', 'pointer-events-none');
+        drop.classList.add('border-emerald-500', 'bg-emerald-50/30');
+        hint.textContent = 'Ready: Your file stays private and is never overwritten.';
+        hint.className = 'mt-2.5 text-center text-[11px] font-semibold text-emerald-700';
+      } else {
+        drop.classList.add('opacity-50', 'pointer-events-none');
+        drop.classList.remove('border-emerald-500', 'bg-emerald-50/30');
+        hint.textContent = 'Tick the Business-Use Declaration above to unlock the file uploader.';
+        hint.className = 'mt-2.5 text-center text-[11px] font-semibold text-amber-700';
       }
     }
 
-    function renderQueue() {
-      const queueEl = document.getElementById('orderQueue');
-      queueEl.innerHTML = liveOrders.map(order => {
-        const isSelected = order.id === selectedOrderId;
-        const borderClass = isSelected ? 'border-2 border-emerald-500' : 'border border-slate-700 hover:border-slate-500';
-        const rushBadge = order.isRush
-          ? '<span class="text-[10px] font-bold bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full">RUSH</span>'
-          : '';
+    function handleFileUpload(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      uploadedFileObject = file;
 
-        return `
-          <div id="card-${order.id}" onclick="selectOrder('${order.id}')" class="cursor-pointer bg-slate-800 ${borderClass} rounded-2xl p-4 transition">
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-xs font-bold text-emerald-400">#${order.orderReference}</span>
-              <div class="flex items-center gap-1.5">
-                ${rushBadge}
-                <span class="text-[10px] font-bold uppercase px-2 py-0.5 rounded-full bg-slate-700 text-slate-200">${order.status}</span>
-              </div>
-            </div>
-            <p class="text-sm font-bold text-white truncate">${order.fileName}</p>
-            <p class="text-xs text-slate-400 truncate">${order.customerEmail}</p>
-            <div class="mt-2 flex items-center justify-between text-[11px] text-slate-400">
-              <span>₦${Number(order.amountNaira).toLocaleString()}</span>
-              <span>Due: ${formatDeadline(order.deadlineAt)}</span>
-            </div>
+      const hint = document.getElementById('gateHint');
+      hint.textContent = `Scanning "${file.name}"...`;
+      hint.className = 'mt-2.5 text-center text-[11px] font-semibold text-slate-600';
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const data = new Uint8Array(e.target.result);
+          const workbook = XLSX.read(data, { type: 'array' });
+
+          let totalRows = 0;
+          let blankRows = 0;
+          let duplicateRows = 0;
+          let textNumbers = 0;
+          let mergedCellsCount = 0;
+
+          workbook.SheetNames.forEach(sheetName => {
+            const sheet = workbook.Sheets[sheetName];
+            if (!sheet) return;
+            if (sheet['!merges']) mergedCellsCount += sheet['!merges'].length;
+
+            const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+            if (!Array.isArray(rows)) return;
+            totalRows += rows.length;
+
+            const seen = new Set();
+            rows.forEach(row => {
+              const safeRow = Array.isArray(row) ? row : [row];
+              const isBlank = safeRow.every(cell => String(cell ?? '').trim() === '');
+              if (isBlank) {
+                blankRows++;
+              } else {
+                const signature = JSON.stringify(safeRow);
+                if (seen.has(signature)) duplicateRows++;
+                seen.add(signature);
+
+                safeRow.forEach(cell => {
+                  const val = String(cell ?? '').trim();
+                  if (typeof cell === 'string' && /^[₦$€£]?\s*\d[\d,.]*$/.test(val)) {
+                    textNumbers++;
+                  }
+                });
+              }
+            });
+          });
+
+          renderHealthReport({
+            fileName: file.name,
+            fileSize: file.size,
+            sheetCount: workbook.SheetNames.length || 1,
+            totalRows,
+            blankRows,
+            duplicateRows,
+            textNumbers,
+            mergedCellsCount
+          });
+
+          hint.textContent = `Analyzed "${file.name}" — scroll down to enter your email and checkout.`;
+          hint.className = 'mt-2.5 text-center text-[11px] font-semibold text-emerald-700';
+        } catch (err) {
+          console.error('CSV/Sheet analysis error:', err);
+          hint.textContent = `Could not read "${file.name}": ${err.message}`;
+          hint.className = 'mt-2.5 text-center text-[11px] font-semibold text-rose-600';
+        }
+      };
+
+      reader.onerror = function() {
+        console.error('FileReader error on:', file.name);
+        hint.textContent = `Failed to read "${file.name}" from disk.`;
+        hint.className = 'mt-2.5 text-center text-[11px] font-semibold text-rose-600';
+      };
+
+      reader.readAsArrayBuffer(file);
+    }
+
+    function renderHealthReport(stats) {
+      currentFileMeta = stats;
+      const totalIssues = stats.blankRows + stats.duplicateRows + stats.textNumbers + stats.mergedCellsCount;
+
+      const rawRatio = stats.totalRows > 0 ? (totalIssues / stats.totalRows) * 100 : 15;
+      const messScore = Math.min(Math.max(Math.round(rawRatio * 1.4), 12), 96);
+
+      document.getElementById('reportFileName').textContent = stats.fileName;
+      document.getElementById('metricSheets').textContent = stats.sheetCount;
+      document.getElementById('metricRows').textContent = stats.totalRows.toLocaleString();
+      document.getElementById('metricIssues').textContent = totalIssues.toLocaleString();
+      document.getElementById('messScoreBadge').innerHTML = `${messScore}<span class="text-xs text-slate-400">/100</span>`;
+      document.getElementById('messSeverityLabel').textContent = messScore > 60 ? 'High Mess (Priority)' : (messScore > 30 ? 'Moderate Mess' : 'Light Cleanup');
+
+      const issues = [
+        { label: 'Blank / Empty Rows', count: stats.blankRows, fix: 'Will remove empty rows without breaking formulas' },
+        { label: 'Exact Duplicate Rows', count: stats.duplicateRows, fix: 'Will deduplicate & log removed rows in Change Log' },
+        { label: 'Numbers / Currency Stored as Text', count: stats.textNumbers, fix: 'Will convert to clean numeric values for SUM/charts' },
+        { label: 'Merged Cells Blocking Filters', count: stats.mergedCellsCount, fix: 'Will unmerge & backfill headers cleanly' }
+      ];
+
+      const listEl = document.getElementById('issueList');
+      listEl.innerHTML = issues.map(item => `
+        <li class="flex items-center justify-between p-3 rounded-xl bg-slate-50 border border-slate-200">
+          <div>
+            <span class="font-bold text-slate-900">${item.label}</span>
+            <span class="block text-xs text-slate-500">${item.fix}</span>
           </div>
-        `;
-      }).join('');
+          <span class="px-2.5 py-1 rounded-lg text-xs font-extrabold ${item.count > 0 ? 'bg-rose-100 text-rose-700' : 'bg-emerald-100 text-emerald-700'}">
+            ${item.count} found
+          </span>
+        </li>
+      `).join('');
+
+      if (stats.sheetCount === 1 && stats.totalRows <= 5000) {
+        baseQuoteNaira = 7500;
+        document.getElementById('recommendedPlanName').textContent = 'Starter Clean';
+        document.getElementById('recommendedPlanScope').textContent = '1 sheet, up to 5,000 rows · Clean file + full Change Log';
+      } else {
+        baseQuoteNaira = 20000;
+        document.getElementById('recommendedPlanName').textContent = 'Standard Clean + Dashboard';
+        document.getElementById('recommendedPlanScope').textContent = 'Up to 3 sheets, 25,000 rows · Clean file, Change Log & 6-chart Dashboard';
+      }
+
+      recalculateQuote();
+      document.getElementById('healthReportSection').classList.remove('hidden');
+      document.getElementById('healthReportSection').scrollIntoView({ behavior: 'smooth' });
     }
 
-    function selectOrder(orderId) {
-      selectedOrderId = orderId;
-      renderQueue();
-
-      const order = liveOrders.find(o => o.id === orderId);
-      if (!order) return;
-
-      document.getElementById('detailOrderId').textContent = '#' + order.orderReference;
-      document.getElementById('detailFileName').textContent = order.fileName;
-      document.getElementById('detailCustomer').textContent = order.customerEmail;
-      document.getElementById('detailPlan').textContent = `${order.planType} (₦${Number(order.amountNaira).toLocaleString()})`;
-
-      // Populate metric cards with available live metadata
-      document.getElementById('statRows').textContent = formatBytes(order.fileSize);
-      document.getElementById('statBlanks').textContent = order.isRush ? 'Rush (12h)' : 'Standard (48h)';
-      document.getElementById('statDups').textContent = order.status;
-      document.getElementById('statTextNums').textContent = formatDeadline(order.deadlineAt);
-
-      document.getElementById('statusSelect').value = order.status;
-      document.getElementById('changeLogInput').value = order.changeLog || '';
+    function recalculateQuote() {
+      const isRush = document.getElementById('rushAddonCheckbox').checked;
+      const finalPrice = isRush ? Math.round(baseQuoteNaira * 1.5) : baseQuoteNaira;
+      document.getElementById('finalQuotePrice').textContent = '₦' + finalPrice.toLocaleString();
+      document.getElementById('deliveryPromiseBadge').textContent = isRush ? 'Rush Delivery (12h–24h)' : '48-Hour Delivery';
     }
 
-    async function patchOrder(status, changeLog) {
-      if (!selectedOrderId) {
-        alert('Select an order from the queue first.');
+    function renderTrackedOrder(order) {
+      document.getElementById('trackedOrderTitle').textContent = `Order #${order.orderReference}`;
+      document.getElementById('trackedOrderMeta').textContent = `${order.fileName} · ${order.planType} (₦${Number(order.amountNaira).toLocaleString()})`;
+
+      const msLeft = new Date(order.deadlineAt).getTime() - Date.now();
+      const badge = document.getElementById('trackedDeadlineBadge');
+      if (order.status === 'DELIVERED') {
+        badge.textContent = 'Delivered';
+      } else if (msLeft > 0) {
+        const hours = Math.floor(msLeft / (1000 * 60 * 60));
+        const mins = Math.floor((msLeft % (1000 * 60 * 60)) / (1000 * 60));
+        badge.textContent = `Time Left: ${hours}h ${mins}m`;
+      } else {
+        badge.textContent = 'Due Now';
+      }
+
+      const activeIdx = STAGE_ORDER.indexOf(order.status);
+      document.querySelectorAll('#trackerSteps [data-stage]').forEach((el, idx) => {
+        if (idx < activeIdx || order.status === 'DELIVERED') {
+          el.className = 'p-3 rounded-xl bg-emerald-600 text-white';
+        } else if (idx === activeIdx) {
+          el.className = 'p-3 rounded-xl bg-amber-100 text-amber-800 border border-amber-300';
+        } else {
+          el.className = 'p-3 rounded-xl bg-slate-100 text-slate-400';
+        }
+      });
+
+      const logBox = document.getElementById('trackedChangeLogBox');
+      if (order.changeLog && order.changeLog.trim()) {
+        document.getElementById('trackedChangeLogText').textContent = order.changeLog;
+        logBox.classList.remove('hidden');
+      } else {
+        logBox.classList.add('hidden');
+      }
+
+      document.getElementById('trackerCard').classList.remove('hidden');
+      document.getElementById('trackerMessage').textContent = '';
+    }
+
+    // FIXED: now asks the server for ONE order by reference (public route, no emails exposed)
+    async function lookupOrderByRef(explicitRef) {
+      const ref = (explicitRef || document.getElementById('trackRefInput').value).trim();
+      if (!ref) {
+        document.getElementById('trackerMessage').textContent = 'Please enter an order reference first.';
         return;
       }
 
-      const res = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(selectedOrderId)}/status`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status, changeLog })
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || `Update failed (HTTP ${res.status})`);
-      }
-
-      const idx = liveOrders.findIndex(o => o.id === selectedOrderId);
-      if (idx !== -1) {
-        liveOrders[idx] = data.order;
-      }
-      selectOrder(selectedOrderId);
-      return data.order;
-    }
-
-    async function saveOrderProgress() {
-      const status = document.getElementById('statusSelect').value;
-      const changeLog = document.getElementById('changeLogInput').value;
+      document.getElementById('trackerMessage').textContent = 'Checking live order status...';
 
       try {
-        await patchOrder(status, changeLog);
-        alert(`Order updated to ${status} and Change Log saved!`);
+        const res = await fetch(`${API_BASE}/api/orders/${encodeURIComponent(ref)}`, { cache: 'no-store' });
+
+        if (res.status === 404) {
+          document.getElementById('trackerCard').classList.add('hidden');
+          document.getElementById('trackerMessage').textContent = `No order found matching "${ref}".`;
+          return;
+        }
+
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || 'Could not fetch order status');
+        }
+
+        renderTrackedOrder(data.order);
       } catch (err) {
-        console.error('Error saving progress:', err);
-        alert('Failed to save progress: ' + err.message);
+        console.error('Tracker lookup failed:', err);
+        document.getElementById('trackerMessage').textContent = `Unable to check status: ${err.message}`;
       }
     }
 
-    async function markOrderDelivered() {
-      const changeLog = document.getElementById('changeLogInput').value;
+    function startPaystackCheckout() {
+      const statusMsg = document.getElementById('checkoutStatusMsg');
+      const payBtn = document.getElementById('paystackBtn');
+      const emailInput = document.getElementById('customerEmail');
+      const email = emailInput.value.trim().toLowerCase();
+
+      // FIXED: stricter email check (needs text before @, and a dot after it)
+      if (!EMAIL_REGEX.test(email)) {
+        statusMsg.textContent = 'Please enter a valid email address (like name@gmail.com) before paying.';
+        statusMsg.className = 'mt-3 text-center text-xs font-semibold text-rose-600';
+        statusMsg.classList.remove('hidden');
+        emailInput.focus();
+        return;
+      }
+
+      if (typeof PaystackPop === 'undefined') {
+        console.error('PaystackPop is undefined. Check if js.paystack.co/v1/inline.js was blocked.');
+        statusMsg.textContent = 'Paystack script did not load. Disable any ad blocker/tracking shield or check your internet connection, then refresh.';
+        statusMsg.className = 'mt-3 text-center text-xs font-semibold text-rose-600';
+        statusMsg.classList.remove('hidden');
+        return;
+      }
 
       try {
-        await patchOrder('DELIVERED', changeLog);
-        alert('Order marked as DELIVERED in database!');
+        const isRush = Boolean(document.getElementById('rushAddonCheckbox').checked);
+        const amountNaira = Math.round(isRush ? baseQuoteNaira * 1.5 : baseQuoteNaira);
+        const generatedRef = 'CS-' + Date.now();
+
+        statusMsg.textContent = 'Opening Paystack secure checkout...';
+        statusMsg.className = 'mt-3 text-center text-xs font-semibold text-emerald-700';
+        statusMsg.classList.remove('hidden');
+
+        const handler = PaystackPop.setup({
+          key: 'pk_test_7406ff52abdf2e30794aad3f66f69c36e487b41b',
+          email: email,
+          amount: amountNaira * 100, // Paystack expects amount in Kobo
+          currency: 'NGN',
+          ref: generatedRef,
+          metadata: {
+            custom_fields: [
+              { display_name: 'File Name', variable_name: 'file_name', value: currentFileMeta.fileName || 'Uploaded Sheet' },
+              { display_name: 'Rush Delivery', variable_name: 'rush_delivery', value: isRush ? 'Yes' : 'No' }
+            ]
+          },
+          callback: function(response) {
+            payBtn.disabled = true;
+            payBtn.textContent = 'Saving Order to CleanSheet Server...';
+            statusMsg.textContent = 'Payment confirmed! Recording your order (this may take a few seconds if the server is waking up)...';
+            statusMsg.className = 'mt-3 text-center text-xs font-semibold text-slate-700';
+            statusMsg.classList.remove('hidden');
+
+            // The server verifies the payment with Paystack and uses the amount Paystack charged.
+            const orderPayload = {
+              email: email,
+              orderReference: response.reference || generatedRef,
+              fileName: currentFileMeta.fileName || 'sales_sheet.xlsx',
+              fileSize: Math.round(Number(currentFileMeta.fileSize)) || 0,
+              planType: document.getElementById('recommendedPlanName').textContent.trim(),
+              isRush: isRush
+            };
+
+            (async function() {
+              try {
+                const apiResponse = await fetch(`${API_BASE}/api/orders`, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(orderPayload)
+                });
+                const result = await apiResponse.json();
+
+                if (apiResponse.ok && result.success) {
+                  statusMsg.textContent = `Order confirmed! Reference: ${result.order.orderReference}`;
+                  statusMsg.className = 'mt-3 text-center text-xs font-semibold text-emerald-700';
+                  document.getElementById('trackRefInput').value = result.order.orderReference;
+                  renderTrackedOrder(result.order);
+                  document.getElementById('track').scrollIntoView({ behavior: 'smooth' });
+                } else {
+                  statusMsg.textContent = 'Payment succeeded, but order save failed: ' + (result.error || 'Unknown error') + '. Keep this reference: ' + orderPayload.orderReference;
+                  statusMsg.className = 'mt-3 text-center text-xs font-semibold text-rose-600';
+                  alert('Payment successful, but failed to save order: ' + (result.error || 'Unknown error') + '\nYour payment reference: ' + orderPayload.orderReference);
+                }
+              } catch (err) {
+                console.error('Backend connection error:', err);
+                statusMsg.textContent = 'Payment succeeded, but could not reach backend server. Reference: ' + orderPayload.orderReference;
+                statusMsg.className = 'mt-3 text-center text-xs font-semibold text-rose-600';
+                alert('Payment successful, but could not reach backend server to save order.\nYour payment reference: ' + orderPayload.orderReference);
+              } finally {
+                payBtn.disabled = false;
+                payBtn.textContent = 'Pay Fixed Quote with Paystack →';
+              }
+            })();
+          },
+          onClose: function() {
+            statusMsg.textContent = 'Paystack checkout window closed.';
+            statusMsg.className = 'mt-3 text-center text-xs font-semibold text-slate-500';
+          }
+        });
+
+        handler.openIframe();
       } catch (err) {
-        console.error('Error marking order delivered:', err);
-        alert('Failed to mark order delivered: ' + err.message);
+        console.error('Failed to launch Paystack checkout:', err);
+        statusMsg.textContent = 'Could not open Paystack checkout: ' + err.message;
+        statusMsg.className = 'mt-3 text-center text-xs font-semibold text-rose-600';
+        statusMsg.classList.remove('hidden');
       }
     }
-
-    document.addEventListener('DOMContentLoaded', loadOrders);
   </script>
-  
 </body>
 </html>
